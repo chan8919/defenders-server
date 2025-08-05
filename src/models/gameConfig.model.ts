@@ -20,7 +20,7 @@ export interface GameConfig {
         enemies: IEnemyType[];
         regions: IRegion[];
         turnCards: Card[];
-        
+
     }
 }
 
@@ -51,10 +51,15 @@ export interface IEnemyType {
 }
 
 export interface IRegion {
-    regionId:string;
-    regionName:string;
-    regionDescription:string;
-    regionImageUrl:string;
+    regionId: string;
+    regionName: string;
+    regionDescription: string;
+    regionImageUrl: string;
+    x: number;
+    y: number;
+    radius: number;
+    color: string;
+    connectedRegions: string[];
 }
 
 export interface Card {
