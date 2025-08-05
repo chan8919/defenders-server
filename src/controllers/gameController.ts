@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { GameDataUpdateService } from '../services/gameDataUpdateService';
+import { GameSessionService } from '../services/gameSessionService';
+import crypto from 'crypto';
 
 export class GameController {
     // 게임 데이터 가져오기
@@ -104,14 +106,74 @@ export class GameController {
         }
     }
 
-    // 게임 세션 생성 (임시 구현)
+    // 게임 세션 생성
     static async createGameSession(req: Request, res: Response) {
         try {
-            res.json({
+            const { gameName, maxPlayers, isPrivate, password, hostPlayer } = req.body;
+
+            // 입력 검증
+            if (!gameName || gameName.trim().length < 1 || gameName.length > 50) {
+                return res.status(400).json({
+                    success: false,
+                    message: '게임 이름은 1-50자 사이여야 합니다.'
+                });
+            }
+
+            if (!maxPlayers || maxPlayers < 2 || maxPlayers > 8) {
+                return res.status(400).json({
+                    success: false,
+                    message: '최대 플레이어 수는 2-8명 사이여야 합니다.'
+                });
+            }
+
+            if (isPrivate && (!password || password.length < 4 || password.length > 20)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '비공개 게임의 비밀번호는 4-20자 사이여야 합니다.'
+                });
+            }
+
+            if (!hostPlayer || !hostPlayer.playerName || hostPlayer.playerName.trim().length < 2) {
+                return res.status(400).json({
+                    success: false,
+                    message: '호스트 플레이어 이름은 2자 이상이어야 합니다.'
+                });
+            }
+
+            // 호스트 플레이어 ID 생성
+            const playerId = crypto.randomBytes(8).toString('hex');
+
+            // 게임 세션 생성
+            const session = await GameSessionService.createGameSession({
+                gameName: gameName.trim(),
+                maxPlayers,
+                isPrivate: Boolean(isPrivate),
+                password: isPrivate ? password : undefined,
+                hostPlayer: {
+                    playerId,
+                    playerName: hostPlayer.playerName.trim()
+                }
+            });
+
+            res.status(201).json({
                 success: true,
-                message: '게임 세션 생성 기능은 아직 구현되지 않았습니다.'
+                message: '게임 세션이 성공적으로 생성되었습니다.',
+                data: {
+                    sessionId: session.sessionId,
+                    gameName: session.gameName,
+                    maxPlayers: session.maxPlayers,
+                    currentPlayers: session.currentPlayers,
+                    isPrivate: session.isPrivate,
+                    status: session.status,
+                    hostPlayer: {
+                        playerId: session.players[0].playerId,
+                        playerName: session.players[0].playerName
+                    },
+                    createdAt: session.createdAt
+                }
             });
         } catch (error) {
+            console.error('게임 세션 생성 오류:', error);
             res.status(500).json({
                 success: false,
                 message: '게임 세션 생성에 실패했습니다.'
@@ -119,14 +181,48 @@ export class GameController {
         }
     }
 
-    // 게임 세션 조회 (임시 구현)
+    // 게임 세션 조회
     static async getGameSession(req: Request, res: Response) {
         try {
+            const { gameCode } = req.params;
+            
+            if (!gameCode || gameCode.length !== 8) {
+                return res.status(400).json({
+                    success: false,
+                    message: '유효하지 않은 게임 코드입니다.'
+                });
+            }
+
+            const session = await GameSessionService.getGameSession(gameCode);
+            
+            if (!session) {
+                return res.status(404).json({
+                    success: false,
+                    message: '게임 세션을 찾을 수 없습니다.'
+                });
+            }
+
             res.json({
                 success: true,
-                message: '게임 세션 조회 기능은 아직 구현되지 않았습니다.'
+                data: {
+                    sessionId: session.sessionId,
+                    gameName: session.gameName,
+                    maxPlayers: session.maxPlayers,
+                    currentPlayers: session.currentPlayers,
+                    isPrivate: session.isPrivate,
+                    status: session.status,
+                    players: session.players.map(player => ({
+                        playerId: player.playerId,
+                        playerName: player.playerName,
+                        isHost: player.isHost,
+                        joinedAt: player.joinedAt
+                    })),
+                    createdAt: session.createdAt,
+                    updatedAt: session.updatedAt
+                }
             });
         } catch (error) {
+            console.error('게임 세션 조회 오류:', error);
             res.status(500).json({
                 success: false,
                 message: '게임 세션 조회에 실패했습니다.'
@@ -134,32 +230,95 @@ export class GameController {
         }
     }
 
-    // 플레이어 추가 (임시 구현)
+    // 플레이어 추가
     static async addPlayer(req: Request, res: Response) {
         try {
+            const { gameCode } = req.params;
+            const { playerName, password } = req.body;
+
+            if (!gameCode || gameCode.length !== 8) {
+                return res.status(400).json({
+                    success: false,
+                    message: '유효하지 않은 게임 코드입니다.'
+                });
+            }
+
+            if (!playerName || playerName.trim().length < 2 || playerName.length > 20) {
+                return res.status(400).json({
+                    success: false,
+                    message: '플레이어 이름은 2-20자 사이여야 합니다.'
+                });
+            }
+
+            // 플레이어 ID 생성
+            const playerId = crypto.randomBytes(8).toString('hex');
+
+            const session = await GameSessionService.addPlayer(gameCode, {
+                playerId,
+                playerName: playerName.trim(),
+                password
+            });
+
             res.json({
                 success: true,
-                message: '플레이어 추가 기능은 아직 구현되지 않았습니다.'
+                message: '플레이어가 성공적으로 추가되었습니다.',
+                data: {
+                    sessionId: session.sessionId,
+                    playerId,
+                    playerName: playerName.trim(),
+                    currentPlayers: session.currentPlayers,
+                    maxPlayers: session.maxPlayers
+                }
             });
         } catch (error) {
-            res.status(500).json({
+            console.error('플레이어 추가 오류:', error);
+            res.status(400).json({
                 success: false,
-                message: '플레이어 추가에 실패했습니다.'
+                message: error instanceof Error ? error.message : '플레이어 추가에 실패했습니다.'
             });
         }
     }
 
-    // 게임 시작 (임시 구현)
+    // 게임 시작
     static async startGame(req: Request, res: Response) {
         try {
+            const { gameCode } = req.params;
+            const { hostPlayerId } = req.body;
+
+            if (!gameCode || gameCode.length !== 8) {
+                return res.status(400).json({
+                    success: false,
+                    message: '유효하지 않은 게임 코드입니다.'
+                });
+            }
+
+            if (!hostPlayerId) {
+                return res.status(400).json({
+                    success: false,
+                    message: '호스트 플레이어 ID가 필요합니다.'
+                });
+            }
+
+            const session = await GameSessionService.startGame(gameCode, hostPlayerId);
+
             res.json({
                 success: true,
-                message: '게임 시작 기능은 아직 구현되지 않았습니다.'
+                message: '게임이 성공적으로 시작되었습니다.',
+                data: {
+                    sessionId: session.sessionId,
+                    status: session.status,
+                    players: session.players.map(player => ({
+                        playerId: player.playerId,
+                        playerName: player.playerName,
+                        isHost: player.isHost
+                    }))
+                }
             });
         } catch (error) {
-            res.status(500).json({
+            console.error('게임 시작 오류:', error);
+            res.status(400).json({
                 success: false,
-                message: '게임 시작에 실패했습니다.'
+                message: error instanceof Error ? error.message : '게임 시작에 실패했습니다.'
             });
         }
     }
@@ -239,15 +398,28 @@ export class GameController {
         }
     }
 
-    // 활성 세션 조회 (임시 구현)
+    // 활성 세션 조회
     static async getActiveSessions(req: Request, res: Response) {
         try {
+            const sessions = await GameSessionService.getActiveSessions();
+
             res.json({
                 success: true,
-                data: [],
-                message: '활성 세션 조회 기능은 아직 구현되지 않았습니다.'
+                data: sessions.map(session => ({
+                    sessionId: session.sessionId,
+                    gameName: session.gameName,
+                    maxPlayers: session.maxPlayers,
+                    currentPlayers: session.currentPlayers,
+                    isPrivate: session.isPrivate,
+                    status: session.status,
+                    hostPlayer: session.players.find(p => p.isHost) ? {
+                        playerName: session.players.find(p => p.isHost)!.playerName
+                    } : null,
+                    createdAt: session.createdAt
+                }))
             });
         } catch (error) {
+            console.error('활성 세션 조회 오류:', error);
             res.status(500).json({
                 success: false,
                 message: '활성 세션 조회에 실패했습니다.'
