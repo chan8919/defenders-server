@@ -2,6 +2,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import { GameSessionService } from './gameSessionService';
 import { GameSession } from '../models/gameSession.model';
+import { GameStateService } from './gameStateService';
 
 interface ConnectedPlayer {
     socketId: string;
@@ -155,16 +156,29 @@ export class SocketService {
 
                     console.log(`🎯 게임 액션: ${data.actionType} - ${data.sessionId}`);
                     
-                    // 게임 액션 처리 로직 (추후 구현)
-                    // 예: 이동, 전투, 건설 등
-                    
-                    // 모든 플레이어에게 액션 결과 전송
-                    this.io.to(data.sessionId).emit('game-action-result', {
-                        actionType: data.actionType,
-                        actionData: data.actionData,
-                        playerId: connectedPlayer.playerId,
-                        playerName: connectedPlayer.playerName
-                    });
+                    // 특정 액션 타입에 따른 처리
+                    switch (data.actionType) {
+                        case 'request-game-state':
+                            await this.handleGameStateRequest(socket, data.sessionId, connectedPlayer);
+                            break;
+                        case 'request-map-data':
+                            await this.handleMapDataRequest(socket, data.sessionId, connectedPlayer);
+                            break;
+                        case 'request-player-info':
+                            await this.handlePlayerInfoRequest(socket, data.sessionId, connectedPlayer);
+                            break;
+                        default:
+                            // 기타 게임 액션 처리 로직 (추후 구현)
+                            // 예: 이동, 전투, 건설 등
+                            
+                            // 모든 플레이어에게 액션 결과 전송
+                            this.io.to(data.sessionId).emit('game-action-result', {
+                                actionType: data.actionType,
+                                actionData: data.actionData,
+                                playerId: connectedPlayer.playerId,
+                                playerName: connectedPlayer.playerName
+                            });
+                    }
 
                 } catch (error) {
                     console.error('❌ 게임 액션 오류:', error);
@@ -239,5 +253,101 @@ export class SocketService {
         return Array.from(socketIds)
             .map(socketId => this.connectedPlayers.get(socketId))
             .filter(player => player !== undefined) as ConnectedPlayer[];
+    }
+
+    // 게임 상태 요청 처리
+    private async handleGameStateRequest(socket: any, sessionId: string, connectedPlayer: ConnectedPlayer): Promise<void> {
+        try {
+            let gameState = GameStateService.getGameState(sessionId);
+            
+            // 게임 상태가 없으면 초기화
+            if (!gameState) {
+                gameState = await GameStateService.initializeGameState(sessionId);
+            }
+
+            // API 문서에 맞는 응답 형식
+            socket.emit('game_state_updated', {
+                sessionId: sessionId,
+                players: gameState.players.map(player => ({
+                    id: player.id,
+                    name: player.name,
+                    currentRegion: player.currentRegion,
+                    actionPoints: player.actionPoints,
+                    maxActionPoints: player.maxActionPoints,
+                    isCurrentTurn: player.isCurrentTurn,
+                    informationCards: player.informationCards,
+                    regionCards: player.regionCards
+                })),
+                currentTurn: gameState.currentTurn,
+                gamePhase: gameState.gamePhase,
+                turnNumber: gameState.turnNumber
+            });
+
+            console.log(`✅ 게임 상태 응답 전송: ${sessionId}`);
+
+        } catch (error) {
+            console.error('❌ 게임 상태 요청 처리 오류:', error);
+            socket.emit('error', { message: '게임 상태를 가져오는데 실패했습니다.' });
+        }
+    }
+
+    // 맵 데이터 요청 처리
+    private async handleMapDataRequest(socket: any, sessionId: string, connectedPlayer: ConnectedPlayer): Promise<void> {
+        try {
+            const mapData = await GameStateService.generateMapData(sessionId);
+
+            // API 문서에 맞는 응답 형식
+            socket.emit('map_data', {
+                sessionId: sessionId,
+                regions: mapData.regions,
+                enemies: mapData.enemies,
+                watchtowers: mapData.watchtowers
+            });
+
+            console.log(`✅ 맵 데이터 응답 전송: ${sessionId}`);
+
+        } catch (error) {
+            console.error('❌ 맵 데이터 요청 처리 오류:', error);
+            socket.emit('error', { message: '맵 데이터를 가져오는데 실패했습니다.' });
+        }
+    }
+
+    // 플레이어 정보 요청 처리
+    private async handlePlayerInfoRequest(socket: any, sessionId: string, connectedPlayer: ConnectedPlayer): Promise<void> {
+        try {
+            const playerState = GameStateService.getPlayerState(sessionId, connectedPlayer.playerId);
+            
+            if (!playerState) {
+                // 플레이어 상태가 없으면 게임 상태 초기화 후 다시 시도
+                await GameStateService.initializeGameState(sessionId);
+                const updatedPlayerState = GameStateService.getPlayerState(sessionId, connectedPlayer.playerId);
+                
+                if (!updatedPlayerState) {
+                    socket.emit('error', { message: '플레이어 정보를 찾을 수 없습니다.' });
+                    return;
+                }
+            }
+
+            const finalPlayerState = playerState || GameStateService.getPlayerState(sessionId, connectedPlayer.playerId)!;
+
+            // API 문서에 맞는 응답 형식
+            socket.emit('player_info', {
+                sessionId: sessionId,
+                playerId: connectedPlayer.playerId,
+                playerName: connectedPlayer.playerName,
+                currentRegion: finalPlayerState.currentRegion,
+                actionPoints: finalPlayerState.actionPoints,
+                maxActionPoints: finalPlayerState.maxActionPoints,
+                isCurrentTurn: finalPlayerState.isCurrentTurn,
+                informationCards: finalPlayerState.informationCards,
+                regionCards: finalPlayerState.regionCards
+            });
+
+            console.log(`✅ 플레이어 정보 응답 전송: ${sessionId} - ${connectedPlayer.playerName}`);
+
+        } catch (error) {
+            console.error('❌ 플레이어 정보 요청 처리 오류:', error);
+            socket.emit('error', { message: '플레이어 정보를 가져오는데 실패했습니다.' });
+        }
     }
 } 

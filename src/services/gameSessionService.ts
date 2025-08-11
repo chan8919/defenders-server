@@ -1,4 +1,5 @@
 import { GameSession, IGameSession, IPlayer } from '../models/gameSession.model';
+import { GameStateService } from './gameStateService';
 import crypto from 'crypto';
 
 export class GameSessionService {
@@ -203,6 +204,15 @@ export class GameSessionService {
 
             session.status = 'playing';
             const updatedSession = await session.save();
+            
+            // 게임 상태 초기화
+            try {
+                await GameStateService.initializeGameState(sessionId);
+                console.log(`✅ 게임 상태 초기화 완료: ${sessionId}`);
+            } catch (error) {
+                console.error('❌ 게임 상태 초기화 오류:', error);
+                // 게임 상태 초기화 실패해도 게임은 시작
+            }
             
             console.log(`🎮 게임 시작: ${sessionId}`);
             return updatedSession;

@@ -234,6 +234,131 @@
 
 게임 규칙 정보를 조회합니다.
 
+## Socket.io 이벤트 API
+
+### 클라이언트 → 서버 이벤트
+
+#### join-game-session
+```javascript
+// 클라이언트가 게임 세션에 참가
+socket.emit('join-game-session', {
+  sessionId: "A1B2C3D4",
+  playerId: "abc123def456",
+  playerName: "플레이어1",
+  isHost: false
+});
+```
+
+#### game-action
+```javascript
+// 게임 액션 전송
+socket.emit('game-action', {
+  actionType: "request-game-state", // 또는 "request-map-data", "request-player-info"
+  actionData: {
+    sessionId: "A1B2C3D4",
+    playerId: "abc123def456"
+  }
+});
+```
+
+### 서버 → 클라이언트 이벤트
+
+#### game_state_updated
+```javascript
+// 게임 상태 데이터 응답
+socket.emit('game_state_updated', {
+  sessionId: "A1B2C3D4",
+  players: [
+    {
+      id: "abc123def456",
+      name: "플레이어1",
+      currentRegion: "1",
+      actionPoints: 3,
+      maxActionPoints: 3,
+      isCurrentTurn: true,
+      informationCards: {
+        rebel: 2,
+        invader: 1,
+        outlaw: 0
+      },
+      regionCards: [
+        {
+          id: "card1",
+          regionId: "1",
+          regionName: "브라이우드",
+          color: "#4ade80"
+        }
+      ]
+    }
+  ],
+  currentTurn: "abc123def456",
+  gamePhase: "playing",
+  turnNumber: 1
+});
+```
+
+#### map_data
+```javascript
+// 맵 데이터 응답
+socket.emit('map_data', {
+  sessionId: "A1B2C3D4",
+  regions: [
+    {
+      regionId: "1",
+      regionName: "브라이우드",
+      regionDescription: "고용한 숲속 마을입니다.",
+      x: 80,
+      y: 60,
+      radius: 8,
+      color: "#4ade80"
+    }
+    // ... 20개 지역 데이터
+  ],
+  enemies: [
+    {
+      regionId: "1",
+      enemies: [
+        { type: "rebel", count: 2 },
+        { type: "invader", count: 1 }
+      ]
+    }
+  ],
+  watchtowers: [
+    {
+      regionId: "1",
+      isActive: true
+    }
+  ]
+});
+```
+
+#### player_info
+```javascript
+// 플레이어 정보 응답
+socket.emit('player_info', {
+  sessionId: "A1B2C3D4",
+  playerId: "abc123def456",
+  playerName: "플레이어1",
+  currentRegion: "1",
+  actionPoints: 3,
+  maxActionPoints: 3,
+  isCurrentTurn: true,
+  informationCards: {
+    rebel: 2,
+    invader: 1,
+    outlaw: 0
+  },
+  regionCards: [
+    {
+      id: "card1",
+      regionId: "1",
+      regionName: "브라이우드",
+      color: "#4ade80"
+    }
+  ]
+});
+```
+
 ## 에러 응답
 
 모든 API는 에러 발생 시 다음과 같은 형식으로 응답합니다:

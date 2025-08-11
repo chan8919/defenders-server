@@ -48,6 +48,30 @@ socket.emit('game-action', {
 });
 ```
 
+#### 4. 게임 상태 요청
+```javascript
+socket.emit('request-game-state', {
+    sessionId: '884AB3DB',        // 게임 세션 ID
+    playerId: 'player123'          // 플레이어 ID
+});
+```
+
+#### 5. 맵 데이터 요청
+```javascript
+socket.emit('request-map-data', {
+    sessionId: '884AB3DB',        // 게임 세션 ID
+    playerId: 'player123'          // 플레이어 ID
+});
+```
+
+#### 6. 플레이어 정보 요청
+```javascript
+socket.emit('request-player-info', {
+    sessionId: '884AB3DB',        // 게임 세션 ID
+    playerId: 'player123'          // 플레이어 ID
+});
+```
+
 ### 서버 → 클라이언트 이벤트
 
 #### 1. 에러 메시지
@@ -118,6 +142,144 @@ socket.on('game-action-result', (data) => {
     //     actionData: { ... },
     //     playerId: 'player123',
     //     playerName: '플레이어1'
+    // }
+});
+```
+
+#### 7. 게임 상태 업데이트
+```javascript
+socket.on('game_state_updated', (data) => {
+    console.log('게임 상태 업데이트:', data);
+    // data: {
+    //     sessionId: '884AB3DB',
+    //     players: [...],           // 플레이어 목록
+    //     currentTurn: 'player123', // 현재 턴 플레이어
+    //     gamePhase: 'playing',     // 게임 단계
+    //     turnNumber: 3             // 현재 턴 번호
+    // }
+});
+```
+
+#### 8. 맵 데이터 응답
+```javascript
+socket.on('map_data', (data) => {
+    console.log('맵 데이터:', data);
+    // data: {
+    //     sessionId: '884AB3DB',
+    //     regions: [...],           // 지역 정보
+    //     enemies: [...],           // 적군 배치 정보
+    //     watchtowers: [...]        // 망루 정보
+    // }
+});
+```
+
+#### 9. 플레이어 정보 응답
+```javascript
+socket.on('player_info', (data) => {
+    console.log('플레이어 정보:', data);
+    // data: {
+    //     sessionId: '884AB3DB',
+    //     playerId: 'player123',
+    //     playerName: '플레이어1',
+    //     currentRegion: '1',
+    //     actionPoints: 5,
+    //     maxActionPoints: 5,
+    //     isCurrentTurn: true,
+    //     informationCards: {
+    //         rebel: 2,
+    //         invader: 1,
+    //         outlaw: 0
+    //     },
+    //     regionCards: [...]
+    // }
+});
+```
+
+#### 10. 턴 변경 알림
+```javascript
+socket.on('turn-changed', (data) => {
+    console.log('턴 변경:', data);
+    // data: {
+    //     sessionId: '884AB3DB',
+    //     previousPlayer: 'player123',
+    //     currentPlayer: 'player456',
+    //     turnNumber: 4
+    // }
+});
+```
+
+#### 11. 플레이어 이동 알림
+```javascript
+socket.on('player-moved', (data) => {
+    console.log('플레이어 이동:', data);
+    // data: {
+    //     sessionId: '884AB3DB',
+    //     playerId: 'player123',
+    //     playerName: '플레이어1',
+    //     fromRegion: '1',
+    //     toRegion: '2',
+    //     actionPointsSpent: 1
+    // }
+});
+```
+
+#### 12. 액션 포인트 변경 알림
+```javascript
+socket.on('action-points-changed', (data) => {
+    console.log('액션 포인트 변경:', data);
+    // data: {
+    //     sessionId: '884AB3DB',
+    //     playerId: 'player123',
+    //     actionPoints: 4,
+    //     maxActionPoints: 5,
+    //     reason: 'move' // 변경 이유
+    // }
+});
+```
+
+#### 13. 망루 건설 알림
+```javascript
+socket.on('watchtower-built', (data) => {
+    console.log('망루 건설:', data);
+    // data: {
+    //     sessionId: '884AB3DB',
+    //     playerId: 'player123',
+    //     playerName: '플레이어1',
+    //     regionId: '1',
+    //     regionName: '브라이우드'
+    // }
+});
+```
+
+#### 14. 전투 결과 알림
+```javascript
+socket.on('combat-result', (data) => {
+    console.log('전투 결과:', data);
+    // data: {
+    //     sessionId: '884AB3DB',
+    //     playerId: 'player123',
+    //     playerName: '플레이어1',
+    //     regionId: '1',
+    //     enemyType: 'rebel',
+    //     enemyCount: 1,
+    //     result: 'success' // success 또는 failure
+    // }
+});
+```
+
+#### 15. 카드 뽑기 알림
+```javascript
+socket.on('cards-drawn', (data) => {
+    console.log('카드 뽑기:', data);
+    // data: {
+    //     sessionId: '884AB3DB',
+    //     playerId: 'player123',
+    //     playerName: '플레이어1',
+    //     drawnCards: [
+    //         { id: 'card_2', regionId: '2', regionName: '스톤헤이븐' },
+    //         { id: 'card_4', regionId: '4', regionName: '그레인할로우' }
+    //     ],
+    //     newActionPoints: 5
     // }
 });
 ```
